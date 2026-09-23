@@ -1,0 +1,82 @@
+<body>
+    <div id="main-app">
+        <header>
+            <nav>
+                <button class="nav-btn active" data-view="inventory-view">Inventory</button> 
+                <button class="nav-btn" data-view="medicines-view">Medicines</button>
+            </nav>
+            <div class="header-actions"><h2>Medical Shop Management System</h2></div>
+        </header>
+        <main class="container">
+            <div id="inventory-view" class="page"> 
+                <h2>Full Inventory</h2> 
+                <table id="inventory-table">
+                    <thead><tr><th>Name</th><th>Batch</th><th>Stock</th><th>Price</th></tr></thead>
+                    <tbody id="inventory-table-body"></tbody>
+                </table> 
+            </div>
+            <div id="medicines-view" class="page hidden"> 
+                <h2>Medicines Catalog</h2> 
+                <table id="medicines-table">
+                    <thead><tr><th>ID</th><th>Name</th><th>Price</th></tr></thead>
+                    <tbody id="medicines-table-body"></tbody>
+                </table> 
+            </div>
+        </main>
+    </div>
+    <script>
+        const API_URL="http://localhost:3000";
+        document.querySelector('nav').addEventListener('click', (e) => {
+    if (e.target.classList.contains('nav-btn')) {
+        // Hide all pages
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        
+        // Show the clicked page
+        document.getElementById(e.target.dataset.view).classList.remove('hidden');
+        
+        // Update active button styling
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // Fetch fresh data based on which tab was clicked
+        if (e.target.dataset.view === 'medicines-view') {
+            loadMedicines();
+        } else if (e.target.dataset.view === 'inventory-view') {
+            loadInventory(); // <-- This triggers the inventory to show up!
+        }
+    }
+});
+
+async function loadInventory() {
+    try {
+        const r = await fetch(`${API_URL}/api/inventory`);
+        const data = await r.json();
+        const tbody = document.getElementById('inventory-table-body');
+        
+        tbody.innerHTML = ""; // Clear old data first
+        
+        if (data.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='4'>No inventory found (Check Oracle DB).</td></tr>";
+            return;
+        }
+
+        data.forEach(i => {
+            tbody.innerHTML += `<tr><td>${i.MEDICINE_NAME}</td><td>${i.BATCH_NUMBER}</td><td>${i.QUANTITY}</td><td>${i.UNIT_PRICE}</td></tr>`;
+        });
+    } catch (err) {
+        console.error("Inventory load error:", err);
+    }
+}
+
+        async function loadMedicines() {
+            const r = await fetch(`${API_URL}/api/medicines`);
+            const data = await r.json();
+            const tbody = document.getElementById('medicines-table-body');
+            tbody.innerHTML = "";
+            data.forEach(m => {
+                tbody.innerHTML += `<tr><td>${m.MEDICINE_ID}</td><td>${m.MEDICINE_NAME}</td><td>${m.UNIT_PRICE}</td></tr>`;
+            });
+        }
+        loadInventory(); // Load on start
+    </script>
+</body>
