@@ -41,3 +41,17 @@ The project was developed incrementally using the **Scrum Agile framework**, wit
 │       Database              │
 │        Oracle 11g           │
 └─────────────────────────────┘
+
+## 📸 Application Screenshots
+
+### Login
+![Login](screenshots/login.png)
+
+### Billing
+![Billing](screenshots/billing.png)
+
+### Inventory
+![Inventory](screenshots/inventory.png)
+
+### Employee Management
+![Employee Management](screenshots/employees.png)
