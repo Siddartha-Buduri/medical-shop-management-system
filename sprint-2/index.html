@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 2: Medical Shop Billing</title>
+    <style>
+        :root { --primary: #007bff; --danger: #dc3545; --success: #28a745; --grey: #f4f4f4; --dark-grey: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--grey); margin: 0; color: var(--dark-grey); }
+        .container { width: 90%; max-width: 1200px; margin: 20px auto; }
+        input, button, select { font-size: 1rem; padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: var(--primary); color: white; cursor: pointer; border: none; }
+        button:hover { background: #0056b3; }
+        .hidden { display: none !important; }
+        
+        /* Login Styles */
+        #login-page { max-width: 400px; margin: 100px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        #login-page h1 { text-align: center; }
+        #login-form { display: flex; flex-direction: column; }
+        #login-error { color: var(--danger); text-align: center; }
+        
+        /* Layout */
+        header { background: white; padding: 10px 5%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        header nav button { background: none; color: var(--dark-grey); font-size: 1.1rem; margin-right: 15px; padding: 8px 0; border-bottom: 2px solid transparent; }
+        header nav button.active { font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--primary); }
+        #logout-btn { background: var(--danger); color: white; padding: 8px 15px; }
+        .page { padding: 20px; background: white; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        /* Billing Styles */
+        #billing-view { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .billing-section { padding: 15px; border: 1px solid #eee; border-radius: 5px; }
+        .billing-section h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        #inventory-search-results { max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; margin-top: 10px; }
+        .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; }
+        .search-item:hover { background: #f0f8ff; }
+        .search-item strong { color: var(--primary); }
+        .search-item small { color: #666; display: block; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { text-align: left; background: #f9f9f9; padding: 12px 8px; border-bottom: 2px solid #ddd; }
+        td { padding: 10px 8px; border-bottom: 1px solid #eee; }
+        .qty-input { width: 60px; padding: 8px; text-align: center; }
+        .btn-remove { background: none; color: var(--danger); padding: 5px; }
+        #current-bill-total { font-size: 1.3rem; font-weight: bold; text-align: right; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc; }
+        #complete-sale-btn { background: var(--success); font-size: 1.2rem; padding: 15px; width: 100%; margin-top: 10px; }
+        
+        /* Success Animation */
+        #success-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #4CAF50; color: white; padding: 20px 40px; border-radius: 12px; opacity: 0; transition: opacity 0.3s; z-index: 100;}
+        #success-popup:not(.hidden) { opacity: 1; }
+        .success-text { font-size: 1.5rem; font-weight: bold; text-align: center;}
+    </style>
+</head>
+<body>
+
+    <div id="login-page">
+        <h1>System Login</h1>
+        <form id="login-form">
+            <label>Username</label> <input type="text" id="username" required>
+            <label>Password</label> <input type="password" id="password" required>
+            <button type="submit">Login</button> 
+            <p id="login-error" class="hidden"></p>
+        </form>
+    </div>
+
+    <div id="main-app" class="hidden">
+        <header>
+            <nav>
+                <button class="nav-btn active" data-view="billing-view">Billing (POS)</button> 
+                <button class="nav-btn" data-view="inventory-view">Inventory</button> 
+                <button class="nav-btn" data-view="medicines-view">Medicines</button> 
+            </nav>
+            <div><button id="logout-btn">Logout</button></div>
+        </header>
+
+        <main class="container">
+            <div id="billing-view" class="page">
+                <div class="billing-section"> 
+                    <h3>1. Find Inventory</h3> 
+                    <input type="text" id="inventory-search" placeholder="Search medicines..."> 
+                    <div id="inventory-search-results"></div> 
+                </div>
+                
+                <div class="billing-section"> 
+                    <h3>2. Current Bill</h3> 
+                    <table> 
+                        <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th>Action</th></tr></thead> 
+                        <tbody id="current-bill-items"></tbody> 
+                    </table> 
+                    <div id="current-bill-total">Total: ₹0.00</div> 
+                </div>
+                
+                <div class="billing-section"> 
+                    <h3>3. Customer Details</h3> 
+                    <input type="text" id="customer-fname" placeholder="First Name"> 
+                    <input type="text" id="customer-lname" placeholder="Last Name"> 
+                    <input type="tel" id="customer-phone" placeholder="Phone (10 digits)" maxlength="10"> 
+                    <small id="phone-error-msg" style="color:var(--danger);" class="hidden"></small> 
+                </div>
+                
+                <div class="billing-section"> 
+                    <h3>4. Finalize</h3> 
+                    <select id="payment-method"> 
+                        <option value="Cash">Cash</option> <option value="Card">Card</option> <option value="UPI">UPI</option> 
+                    </select> 
+                    <button id="complete-sale-btn">Complete Sale</button> 
+                    <p id="billing-status"></p> 
+                </div>
+            </div>
+
+            <div id="inventory-view" class="page hidden"> 
+                <h2>Inventory Monitor</h2> 
+                <table><thead><tr><th>Name</th><th>Batch</th><th>Stock</th><th>Price</th></tr></thead><tbody id="inventory-table-body"></tbody></table> 
+            </div>
+            <div id="medicines-view" class="page hidden"> 
+                <h2>Medicines Catalog</h2> 
+                <table><thead><tr><th>ID</th><th>Name</th><th>Price</th></tr></thead><tbody id="medicines-table-body"></tbody></table> 
+            </div>
+        </main>
+    </div>
+
+    <div id="success-popup" class="hidden"> <div class="success-text">Sale Complete!</div> </div>
+
+    <script>
+        const API_URL = "http://localhost:3000"; 
+        let currentBill = [], fullInventory = [], loggedInEmployee = null;
+        
+        const loginPage = document.getElementById("login-page"), mainApp = document.getElementById("main-app");
+
+        // --- Navigation ---
+        document.querySelector('nav').addEventListener('click', (e) => {
+            if (e.target.classList.contains('nav-btn')) {
+                document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+                document.getElementById(e.target.dataset.view).classList.remove('hidden');
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                if (e.target.dataset.view === 'medicines-view') loadMedicines();
+                if (e.target.dataset.view === 'inventory-view') loadInventory();
+            }
+        });
+
+        // --- Login Logic ---
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value, p = document.getElementById('password').value;
+            const err = document.getElementById('login-error');
+            try {
+                const r = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p})
+                });
+                const d = await r.json();
+                if (r.ok && d.success) {
+                    loggedInEmployee = d.user;
+                    loginPage.classList.add('hidden');
+                    mainApp.classList.remove('hidden');
+                    await loadInventoryData(); 
+                } else {
+                    err.textContent = "Invalid credentials."; err.classList.remove('hidden');
+                }
+            } catch (e) {
+                err.textContent = "Server error."; err.classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => location.reload());
+
+        // --- Data Loading ---
+        async function loadInventoryData() {
+            try {
+                const r = await fetch(`${API_URL}/api/inventory`);
+                fullInventory = await r.json();
+                populateSearchList();
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadInventory() {
+            const tbody = document.getElementById('inventory-table-body');
+            tbody.innerHTML = "";
+            fullInventory.forEach(i => {
+                tbody.innerHTML += `<tr><td>${i.MEDICINE_NAME}</td><td>${i.BATCH_NUMBER}</td><td>${i.QUANTITY}</td><td>₹${i.UNIT_PRICE}</td></tr>`;
+            });
+        }
+
+        async function loadMedicines() {
+            try {
+                const r = await fetch(`${API_URL}/api/medicines`);
+                const data = await r.json();
+                const tbody = document.getElementById('medicines-table-body');
+                tbody.innerHTML = "";
+                data.forEach(m => { tbody.innerHTML += `<tr><td>${m.MEDICINE_ID}</td><td>${m.MEDICINE_NAME}</td><td>₹${m.UNIT_PRICE}</td></tr>`; });
+            } catch(e) { console.error(e); }
+        }
+
+        // --- Billing Logic ---
+        document.getElementById('inventory-search').addEventListener('input', (e) => populateSearchList(e.target.value.toLowerCase()));
+
+        function populateSearchList(filter = '') {
+            const results = document.getElementById('inventory-search-results');
+            results.innerHTML = "";
+            const filtered = fullInventory.filter(i => (i.MEDICINE_NAME && i.MEDICINE_NAME.toLowerCase().includes(filter)));
+            filtered.slice(0, 15).forEach(i => {
+                results.innerHTML += `<div class="search-item" data-id="${i.INVENTORY_ID}">
+                    <div><strong>${i.MEDICINE_NAME}</strong><small>Batch: ${i.BATCH_NUMBER} | Stock: ${i.QUANTITY}</small></div>
+                    <span>₹${i.UNIT_PRICE}</span>
+                </div>`;
+            });
+        }
+
+        // Add to Cart
+        document.getElementById('inventory-search-results').addEventListener('click', (e) => {
+            const itemDiv = e.target.closest('.search-item');
+            if (!itemDiv) return;
+            const itemData = fullInventory.find(it => it.INVENTORY_ID === itemDiv.dataset.id);
+            
+            if(currentBill.find(b => b.inventory_id === itemData.INVENTORY_ID)) {
+                alert("Item already in cart."); return;
+            }
+            if(itemData.QUANTITY > 0) {
+                currentBill.push({
+                    inventory_id: itemData.INVENTORY_ID, name: itemData.MEDICINE_NAME, 
+                    price: itemData.UNIT_PRICE, qty: 1, stock: itemData.QUANTITY
+                });
+                renderCurrentBill();
+            } else {
+                alert("Out of stock!");
+            }
+        });
+
+        // Render Cart
+        function renderCurrentBill() {
+            const tbody = document.getElementById('current-bill-items');
+            tbody.innerHTML = "";
+            let total = 0;
+            currentBill.forEach(i => {
+                const lineTotal = i.price * i.qty;
+                total += lineTotal;
+                tbody.innerHTML += `<tr data-id="${i.inventory_id}">
+                    <td>${i.name}</td>
+                    <td><input type="number" class="qty-input" value="${i.qty}" min="1" max="${i.stock}"></td>
+                    <td>₹${i.price.toFixed(2)}</td><td>₹${lineTotal.toFixed(2)}</td>
+                    <td><button class="btn-remove">X</button></td>
+                </tr>`;
+            });
+            document.getElementById('current-bill-total').textContent = `Total: ₹${total.toFixed(2)}`;
+        }
+
+        // Update Qty / Remove Item
+        document.getElementById('current-bill-items').addEventListener('change', (e) => {
+            if (e.target.classList.contains('qty-input')) {
+                const id = e.target.closest('tr').dataset.id;
+                const item = currentBill.find(i => i.inventory_id === id);
+                let val = parseInt(e.target.value);
+                if (val > item.stock) { val = item.stock; alert(`Only ${item.stock} in stock.`); }
+                item.qty = val; e.target.value = val;
+                renderCurrentBill();
+            }
+        });
+
+        document.getElementById('current-bill-items').addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-remove')) {
+                const id = e.target.closest('tr').dataset.id;
+                currentBill = currentBill.filter(i => i.inventory_id !== id);
+                renderCurrentBill();
+            }
+        });
+
+        // Process Sale
+        document.getElementById('complete-sale-btn').addEventListener('click', async () => {
+            if (currentBill.length === 0) return alert("Bill is empty.");
+            
+            const payload = {
+                employee_id: loggedInEmployee.EMPLOYEE_ID,
+                payment_method: document.getElementById('payment-method').value,
+                customer_fname: document.getElementById('customer-fname').value,
+                customer_lname: document.getElementById('customer-lname').value,
+                customer_phone: document.getElementById('customer-phone').value,
+                items: currentBill.map(i => ({ inventory_id: i.inventory_id, qty_sold: i.qty }))
+            };
+
+            try {
+                const r = await fetch(`${API_URL}/api/billing`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                
+                if (d.success) {
+                    const popup = document.getElementById('success-popup');
+                    popup.classList.remove('hidden');
+                    setTimeout(() => popup.classList.add('hidden'), 2000);
+                    
+                    // Reset Form
+                    currentBill = []; renderCurrentBill();
+                    document.getElementById('customer-fname').value = "";
+                    document.getElementById('customer-lname').value = "";
+                    document.getElementById('customer-phone').value = "";
+                    document.getElementById('inventory-search').value = "";
+                    
+                    await loadInventoryData(); // Refresh DB stock
+                } else {
+                    alert(`Error: ${d.message}`);
+                }
+            } catch (err) { alert("Transaction failed."); }
+        });
+    </script>
+</body>
+</html>
